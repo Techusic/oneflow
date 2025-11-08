@@ -7,18 +7,21 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    host: "::",
+    host: "localhost",
     port: 8080,
-    // Add this proxy configuration
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000', // Your Django backend
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
-      }
-    }
-  },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+        ws: false,
+      },
+    },
+  },  
+  plugins: [
+    react(),
+    ...(mode === "development" ? [componentTagger()] : [])
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

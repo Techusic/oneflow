@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProjectProvider } from "@/contexts/ProjectContext";
+import { TaskProvider } from "@/contexts/TaskContext";
+import { FinancialProvider } from "@/contexts/FinancialContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -25,7 +27,9 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <ProjectProvider>
-          <TooltipProvider>
+          <TaskProvider>
+            <FinancialProvider>
+              <TooltipProvider>
             <Toaster />
             <Sonner />
             <BrowserRouter>
@@ -43,7 +47,9 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
-          </TooltipProvider>
+              </TooltipProvider>
+            </FinancialProvider>
+          </TaskProvider>
         </ProjectProvider>
       </AuthProvider>
     </ThemeProvider>

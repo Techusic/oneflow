@@ -5,13 +5,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { projects, tasks } from "@/data/staticData";
+import { useProjects } from "@/contexts/ProjectContext";
+import { useTasks } from "@/contexts/TaskContext";
 import { FolderKanban, CheckSquare, Clock, TrendingUp, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [filter, setFilter] = useState<string>("all");
+  const { projects } = useProjects();
+  const { tasks } = useTasks();
 
   const activeProjects = projects.filter((p) => p.status === "in_progress").length;
   const delayedTasks = tasks.filter((t) => new Date(t.dueDate) < new Date() && t.status !== "done").length;

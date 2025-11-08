@@ -5,7 +5,10 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('analytics/', include('apps.analytics.urls')),
+    # Include users URLs first (authentication endpoints)
+    path('', include('apps.users.urls')),
+    # Include analytics URLs (API routes)
+    path('', include('apps.analytics.urls')),
 ]
 
 # Serve media files in development

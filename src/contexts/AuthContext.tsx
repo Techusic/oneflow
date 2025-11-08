@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch('/api/users/login/', { // Uses the proxy
         method: 'POST',
+        credentials: 'include', // Important for session cookies
         headers: {
           'Content-Type': 'application/json',
         },
@@ -40,8 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         // You might get specific error messages from the backend
-        const errorData = await response.json().catch(() => ({ detail: 'Invalid credentials' }));
-        throw new Error(errorData.detail || "Invalid credentials");
+        let errorMessage = 'Invalid credentials';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -57,9 +65,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Store the auth token to send with future requests
       localStorage.setItem("oneflow_token", token); 
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Login failed:", error);
-      throw error; // Re-throw to let the Login page handle it
+      // Re-throw with a user-friendly message
+      throw new Error(error.message || "Login failed. Please check your credentials and try again.");
     }
   };
 
@@ -67,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
      try {
       const response = await fetch('/api/users/signup/', { // Uses the proxy
         method: 'POST',
+        credentials: 'include', // Important for session cookies
         headers: {
           'Content-Type': 'application/json',
         },
@@ -74,8 +84,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Signup failed' }));
-        throw new Error(errorData.detail || "Signup failed");
+        let errorMessage = 'Signup failed';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorData.message || errorMessage;
+        } catch (e) {
+          errorMessage = response.statusText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
       
       const data = await response.json();
@@ -90,9 +106,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("oneflow_user", JSON.stringify(user));
       localStorage.setItem("oneflow_token", token);
       
-    } catch (error) {
+    } catch (error: any) {
        console.error("Signup failed:", error);
-       throw error; // Re-throw to let the Signup page handle it
+       throw new Error(error.message || "Signup failed. Please try again.");
     }
   };
 
