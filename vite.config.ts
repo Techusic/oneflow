@@ -1,3 +1,4 @@
+// FILE: vite.config.ts
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
@@ -8,6 +9,14 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    // Add this proxy configuration
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:8000', // Your Django backend
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
