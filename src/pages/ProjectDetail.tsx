@@ -105,13 +105,19 @@ export default function ProjectDetail() {
     setIsCreateExpenseOpen(true);
   };
 
-  const handleSaveSO = (data: any) => {
-    const newSO: SalesOrder = {
-      id: Date.now().toString(),
+ const handleSaveSO = (data: any) => {
+    // FIX: Create Omit<SalesOrder, 'id'> as expected by addSalesOrder
+    const newSO: Omit<SalesOrder, 'id'> = {
       projectId: id || "",
-      ...data,
+      number: data.number,
+      customer: data.customer,
+      amount: data.amount,
+      date: data.date,
+      // FIX: Cast status to the correct type
+      status: data.status as "draft" | "confirmed" | "invoiced",
+      description: data.description,
     };
-    addSalesOrder(newSO);
+    addSalesOrder(newSO); // This now matches the context
     toast({
       title: "Sales Order created",
       description: "The sales order has been successfully created.",
@@ -119,12 +125,18 @@ export default function ProjectDetail() {
   };
 
   const handleSavePO = (data: any) => {
-    const newPO: PurchaseOrder = {
-      id: Date.now().toString(),
+    // FIX: Create Omit<PurchaseOrder, 'id'> as expected by addPurchaseOrder
+    const newPO: Omit<PurchaseOrder, 'id'> = {
       projectId: id || "",
-      ...data,
+      number: data.number,
+      vendor: data.vendor,
+      amount: data.amount,
+      date: data.date,
+      // FIX: Cast status to the correct type
+      status: data.status as "draft" | "confirmed" | "billed",
+      description: data.description,
     };
-    addPurchaseOrder(newPO);
+    addPurchaseOrder(newPO); // This now matches the context
     toast({
       title: "Purchase Order created",
       description: "The purchase order has been successfully created.",
@@ -132,13 +144,20 @@ export default function ProjectDetail() {
   };
 
   const handleSaveInvoice = (data: any) => {
-    const newInvoice: CustomerInvoice = {
-      id: Date.now().toString(),
+    // FIX: Create Omit<CustomerInvoice, 'id'> as expected by addInvoice
+    const newInvoice: Omit<CustomerInvoice, 'id'> = {
       projectId: id || "",
       salesOrderId: data.salesOrderId || undefined,
-      ...data,
+      number: data.number,
+      customer: data.customer,
+      amount: data.amount,
+      date: data.date,
+      dueDate: data.dueDate,
+      // FIX: Cast status to the correct type. This fixes the error.
+      status: data.status as "draft" | "sent" | "paid",
+      description: data.description,
     };
-    addInvoice(newInvoice);
+    addInvoice(newInvoice); // This now matches the context
     toast({
       title: "Invoice created",
       description: "The invoice has been successfully created.",
@@ -146,13 +165,20 @@ export default function ProjectDetail() {
   };
 
   const handleSaveBill = (data: any) => {
-    const newBill: VendorBill = {
-      id: Date.now().toString(),
+    // FIX: Create Omit<VendorBill, 'id'> as expected by addBill
+    const newBill: Omit<VendorBill, 'id'> = {
       projectId: id || "",
       purchaseOrderId: data.purchaseOrderId || undefined,
-      ...data,
+      number: data.number,
+      vendor: data.vendor,
+      amount: data.amount,
+      date: data.date,
+      dueDate: data.dueDate,
+      // FIX: Cast status to the correct type
+      status: data.status as "draft" | "confirmed" | "paid",
+      description: data.description,
     };
-    addBill(newBill);
+    addBill(newBill); // This now matches the context
     toast({
       title: "Vendor Bill created",
       description: "The vendor bill has been successfully created.",
@@ -160,12 +186,20 @@ export default function ProjectDetail() {
   };
 
   const handleSaveExpense = (data: any) => {
-    const newExpense: Expense = {
-      id: Date.now().toString(),
+    // FIX: Create Omit<Expense, 'id'> as expected by addExpense
+    const newExpense: Omit<Expense, 'id'> = {
       projectId: id || "",
-      ...data,
+      employee: data.employee,
+      amount: data.amount,
+      date: data.date,
+      category: data.category,
+      description: data.description,
+      billable: data.billable,
+      // FIX: Cast status to the correct type
+      status: data.status as "pending" | "approved" | "rejected",
+      receipt: data.receipt || undefined,
     };
-    addExpense(newExpense);
+    addExpense(newExpense); // This now matches the context
     toast({
       title: "Expense submitted",
       description: "The expense has been successfully submitted.",
