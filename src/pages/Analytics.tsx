@@ -27,10 +27,7 @@ export default function Analytics() {
     const totalEstimatedHours = tasks.reduce((sum, t) => sum + t.estimatedHours, 0);
     const hoursUtilization = totalEstimatedHours > 0 ? (totalHours / totalEstimatedHours) * 100 : 0;
     
-    // Calculate billable vs non-billable from expenses
-    const billableExpenses = expenses.filter((e) => e.billable);
-    const billableExpenseAmount = billableExpenses.reduce((sum, e) => sum + e.amount, 0);
-    const nonBillableExpenseAmount = expenses.filter((e) => !e.billable).reduce((sum, e) => sum + e.amount, 0);
+  // (billable vs non-billable removed — use categories instead)
     
     // Financial calculations
     const totalRevenue = invoices.reduce((sum, i) => sum + i.amount, 0);
@@ -215,8 +212,7 @@ export default function Analytics() {
       totalHours,
       totalEstimatedHours,
       hoursUtilization,
-      billableExpenseAmount,
-      nonBillableExpenseAmount,
+  // billableExpenseAmount and nonBillableExpenseAmount removed — categories are the source of truth
       totalRevenue,
       totalBills,
       totalExpenses,
@@ -559,64 +555,6 @@ export default function Analytics() {
                     <div className="text-center py-8 text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p>No expenses yet</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Billable vs Non-billable Expenses */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billable vs Non-billable Expenses</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {analytics.totalExpenses > 0 ? (
-                    <div className="flex items-center justify-center h-48">
-                      <div className="text-center">
-                        <div className="text-4xl font-bold">₹{(analytics.totalExpenses / 1000).toFixed(0)}k</div>
-                        <p className="text-muted-foreground mt-2">Total Expenses</p>
-                        <div className="mt-4 space-y-2">
-                          <div className="flex items-center gap-2 justify-center">
-                            <div className="w-3 h-3 rounded-full bg-success" />
-                            <span className="text-sm">Billable: ₹{(analytics.billableExpenseAmount / 1000).toFixed(0)}k</span>
-                            {analytics.totalExpenses > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                ({((analytics.billableExpenseAmount / analytics.totalExpenses) * 100).toFixed(0)}%)
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 justify-center">
-                            <div className="w-3 h-3 rounded-full bg-muted" />
-                            <span className="text-sm">Non-billable: ₹{(analytics.nonBillableExpenseAmount / 1000).toFixed(0)}k</span>
-                            {analytics.totalExpenses > 0 && (
-                              <span className="text-xs text-muted-foreground">
-                                ({((analytics.nonBillableExpenseAmount / analytics.totalExpenses) * 100).toFixed(0)}%)
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        {analytics.totalExpenses > 0 && (
-                          <div className="mt-4 space-y-2">
-                            <div className="w-full bg-muted rounded-full h-2">
-                              <div
-                                className="bg-success rounded-full h-2 transition-all"
-                                style={{ width: `${Math.min((analytics.billableExpenseAmount / analytics.totalExpenses) * 100, 100)}%` }}
-                              />
-                            </div>
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>Billable: {((analytics.billableExpenseAmount / analytics.totalExpenses) * 100).toFixed(0)}%</span>
-                              <span>Non-billable: {((analytics.nonBillableExpenseAmount / analytics.totalExpenses) * 100).toFixed(0)}%</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center h-48">
-                      <div className="text-center text-muted-foreground">
-                        <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>No expenses yet</p>
-                      </div>
                     </div>
                   )}
                 </CardContent>

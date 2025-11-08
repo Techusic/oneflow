@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { 
   SalesOrder, PurchaseOrder, CustomerInvoice, 
@@ -91,6 +92,100 @@ export const FinancialProvider: React.FC<FinancialProviderProps> = ({ children }
   useEffect(() => {
     localStorage.setItem("expenses", JSON.stringify(expenses));
   }, [expenses]);
+
+  // Fetch data from backend API on mount (fallback to existing local data)
+  useEffect(() => {
+    const load = async () => {
+      try {
+        // Sales Orders
+        const soRes = await fetch("/api/sales-orders/");
+        if (soRes.ok) {
+          const data = await soRes.json();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setSalesOrders(data.map((d: any) => ({
+            id: String(d.id),
+            projectId: (d as any).project || "",
+            number: (d as any).number || "",
+            customer: String((d as any).customer || ""),
+            amount: (d as any).total_amount ?? (d as any).amount ?? 0,
+            date: (d as any).date || "",
+            status: (d as any).status || "draft",
+            description: (d as any).description || "",
+          })));
+        }
+
+        // Purchase Orders
+        const poRes = await fetch("/api/purchase-orders/");
+        if (poRes.ok) {
+          const data = await poRes.json();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setPurchaseOrders(data.map((d: any) => ({
+            id: String(d.id),
+            projectId: (d as any).project || "",
+            number: (d as any).number || "",
+            vendor: String((d as any).vendor || ""),
+            amount: (d as any).total_amount ?? (d as any).amount ?? 0,
+            date: (d as any).date || "",
+            status: (d as any).status || "draft",
+            description: (d as any).description || "",
+          })));
+        }
+
+        // Invoices (customer) and Bills (vendor)
+        const invRes = await fetch("/api/invoices/");
+        if (invRes.ok) {
+          const data = await invRes.json();
+          const customers: CustomerInvoice[] = [];
+          const vendors: VendorBill[] = [];
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          data.forEach((d: any) => {
+            const common = {
+              id: String(d.id),
+              projectId: (d as any).project || "",
+              number: (d as any).number || "",
+              amount: (d as any).total_amount ?? (d as any).amount ?? 0,
+              date: (d as any).date || "",
+              dueDate: (d as any).due_date || "",
+              status: (d as any).status || "draft",
+              description: (d as any).description || "",
+            } as CustomerInvoice & VendorBill;
+
+            if ((d as any).invoice_type === "customer") {
+              customers.push({ ...common, customer: String((d as any).customer || ""), salesOrderId: (d as any).sales_order || undefined });
+            } else if ((d as any).invoice_type === "vendor") {
+              vendors.push({ ...common, vendor: String((d as any).vendor || ""), purchaseOrderId: (d as any).purchase_order || undefined });
+            }
+          });
+          if (customers.length) setInvoices(customers);
+          if (vendors.length) setBills(vendors);
+        }
+
+        // Expenses
+        const expRes = await fetch("/api/expenses/");
+        if (expRes.ok) {
+          const data = await expRes.json();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          setExpenses(data.map((d: any) => ({
+            id: String(d.id),
+            projectId: (d as any).project || "",
+            employee: (d as any).user || "",
+            amount: (d as any).amount ?? 0,
+            date: (d as any).date || "",
+            category: (d as any).category || "",
+            description: (d as any).description || "",
+            billable: Boolean((d as any).billable),
+            status: (d as any).status || "pending",
+            receipt: (d as any).receipt || undefined,
+          })));
+        }
+      } catch (err) {
+        // If any fetch fails, keep local/static data (no-op)
+        console.warn("Failed to fetch financial data from API, using local data.", err);
+      }
+    };
+
+    load();
+  }, []);
 
   // Sales Orders
   const addSalesOrder = (so: SalesOrder) => {

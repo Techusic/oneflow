@@ -269,6 +269,9 @@ class Expense(models.Model):
 	vendor = models.ForeignKey(Vendor, null=True, blank=True, on_delete=models.SET_NULL, related_name="expenses")
 	user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="expenses")
 	name = models.CharField(max_length=255)
+	# Category and billable flag added to align with frontend
+	category = models.CharField(max_length=128, blank=True, default="")
+	billable = models.BooleanField(default=False)
 	date = models.DateField(default=timezone.localdate)
 	amount = models.DecimalField(max_digits=12, decimal_places=2)
 	description = models.TextField(blank=True)

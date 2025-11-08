@@ -88,12 +88,18 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+print("Database settings:")
+print(f"Name: {os.getenv('DATABASE_NAME')}")
+print(f"User: {os.getenv('DATABASE_USER')}")
+print(f"Host: {os.getenv('DATABASE_HOST', '127.0.0.1')}")
+print(f"Port: {os.getenv('DATABASE_PORT', '5432')}")
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DATABASE_NAME"),
-        "USER": os.getenv("DATABASE_USER"),
-        "PASSWORD": os.getenv("DATABASE_PASSWORD"),
+        "NAME": os.getenv("DATABASE_NAME", "oneflow"),
+        "USER": os.getenv("DATABASE_USER", "postgres"),
+        "PASSWORD": os.getenv("DATABASE_PASSWORD", "1234"),
         "HOST": os.getenv("DATABASE_HOST", "127.0.0.1"),
         "PORT": os.getenv("DATABASE_PORT", "5432"),
     }
