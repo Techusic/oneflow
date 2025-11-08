@@ -1,27 +1,23 @@
-"""
-URL configuration for backend project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+# backend/backend/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Include users URLs first (more specific routes)
-    path('', include('apps.users.urls')),
-    # Include analytics URLs (API routes)
-    path('', include('apps.analytics.urls')),
+    
+    # User auth URLs (login, logout, register, session)
+    path('api/', include('apps.users.urls')), 
+    
+    # API endpoints
+    path('api/', include('apps.projects.urls')),
+    path('api/', include('apps.tasks.urls')),
+    path('api/', include('apps.analytics.urls')),
+    
+    # Add all your other apps here
+    path('api/', include('apps.orders.urls')),      # Assumes you create this
+    path('api/', include('apps.invoices.urls')),    # Assumes you create this
+    path('api/', include('apps.expenses.urls')),    # Assumes you create this
+    path('api/', include('apps.timesheets.urls')),  # Assumes you create this
+    path('api/', include('apps.products.urls')),    # Assumes you create this
 ]

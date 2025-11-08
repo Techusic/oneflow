@@ -1,14 +1,18 @@
+// src/contexts/FinancialContext.tsx
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { 
-  SalesOrder, PurchaseOrder, CustomerInvoice, 
-  VendorBill, Expense,
-  salesOrders as initialSO,
-  purchaseOrders as initialPO,
-  customerInvoices as initialInvoices,
-  vendorBills as initialBills,
-  expenses as initialExpenses
-} from "@/data/staticData";
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { api } from '@/lib/api';
+import { useAuth } from './AuthContext';
+
+// Import your types...
+import { SalesOrder, PurchaseOrder, CustomerInvoice, VendorBill, Expense } from "@/data/staticData";
+
+// Define API response types (can be moved to a types file)
+// These are examples; adjust them to match your Django Serializers
+interface ApiSalesOrder { id: string; [key: string]: any; }
+interface ApiPurchaseOrder { id: string; [key: string]: any; }
+interface ApiInvoice { id: string; invoice_type: 'customer' | 'vendor'; [key: string]: any; }
+interface ApiExpense { id: string; [key: string]: any; }
 
 interface FinancialContextType {
   salesOrders: SalesOrder[];
@@ -16,21 +20,22 @@ interface FinancialContextType {
   invoices: CustomerInvoice[];
   bills: VendorBill[];
   expenses: Expense[];
-  addSalesOrder: (so: SalesOrder) => void;
-  updateSalesOrder: (id: string, so: Partial<SalesOrder>) => void;
-  deleteSalesOrder: (id: string) => void;
-  addPurchaseOrder: (po: PurchaseOrder) => void;
-  updatePurchaseOrder: (id: string, po: Partial<PurchaseOrder>) => void;
-  deletePurchaseOrder: (id: string) => void;
-  addInvoice: (invoice: CustomerInvoice) => void;
-  updateInvoice: (id: string, invoice: Partial<CustomerInvoice>) => void;
-  deleteInvoice: (id: string) => void;
-  addBill: (bill: VendorBill) => void;
-  updateBill: (id: string, bill: Partial<VendorBill>) => void;
-  deleteBill: (id: string) => void;
-  addExpense: (expense: Expense) => void;
-  updateExpense: (id: string, expense: Partial<Expense>) => void;
-  deleteExpense: (id: string) => void;
+  isLoading: boolean;
+  addSalesOrder: (so: Omit<SalesOrder, 'id'>) => Promise<void>;
+  updateSalesOrder: (id: string, so: Partial<SalesOrder>) => Promise<void>;
+  deleteSalesOrder: (id: string) => Promise<void>;
+  addPurchaseOrder: (po: Omit<PurchaseOrder, 'id'>) => Promise<void>;
+  updatePurchaseOrder: (id: string, po: Partial<PurchaseOrder>) => Promise<void>;
+  deletePurchaseOrder: (id: string) => Promise<void>;
+  addInvoice: (invoice: Omit<CustomerInvoice, 'id'>) => Promise<void>;
+  updateInvoice: (id: string, invoice: Partial<CustomerInvoice>) => Promise<void>;
+  deleteInvoice: (id: string) => Promise<void>;
+  addBill: (bill: Omit<VendorBill, 'id'>) => Promise<void>;
+  updateBill: (id: string, bill: Partial<VendorBill>) => Promise<void>;
+  deleteBill: (id: string) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (id: string, expense: Partial<Expense>) => Promise<void>;
+  deleteExpense: (id: string) => Promise<void>;
 }
 
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
@@ -43,213 +48,214 @@ export const useFinancial = () => {
   return context;
 };
 
-interface FinancialProviderProps {
-  children: ReactNode;
-}
+// Helper: Transform API invoice data
+const transformApiInvoice = (d: ApiInvoice): CustomerInvoice | VendorBill | null => {
+  const common = {
+    id: String(d.id),
+    projectId: d.project || "",
+    number: d.number || "",
+    amount: d.total_amount ?? d.amount ?? 0,
+    date: d.date || "",
+    dueDate: d.due_date || "",
+    status: d.status || "draft",
+    description: d.description || "",
+  };
+  if (d.invoice_type === "customer") {
+    return { ...common, customer: String(d.customer || ""), salesOrderId: d.sales_order || undefined };
+  } else if (d.invoice_type === "vendor") {
+    return { ...common, vendor: String(d.vendor || ""), purchaseOrderId: d.purchase_order || undefined };
+  }
+  return null;
+};
 
-export const FinancialProvider: React.FC<FinancialProviderProps> = ({ children }) => {
-  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>(() => {
-    const stored = localStorage.getItem("salesOrders");
-    return stored ? JSON.parse(stored) : initialSO;
-  });
 
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>(() => {
-    const stored = localStorage.getItem("purchaseOrders");
-    return stored ? JSON.parse(stored) : initialPO;
-  });
+export const FinancialProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [invoices, setInvoices] = useState<CustomerInvoice[]>([]);
+  const [bills, setBills] = useState<VendorBill[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated } = useAuth();
 
-  const [invoices, setInvoices] = useState<CustomerInvoice[]>(() => {
-    const stored = localStorage.getItem("customerInvoices");
-    return stored ? JSON.parse(stored) : initialInvoices;
-  });
+  // Load all financial data from API
+  const loadFinancialData = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setIsLoading(true);
 
-  const [bills, setBills] = useState<VendorBill[]>(() => {
-    const stored = localStorage.getItem("vendorBills");
-    return stored ? JSON.parse(stored) : initialBills;
-  });
+    try {
+      // Use Promise.all to fetch in parallel
+      const [soRes, poRes, invRes, expRes] = await Promise.all([
+        api<ApiSalesOrder[]>('/api/sales-orders/'),
+        api<ApiPurchaseOrder[]>('/api/purchase-orders/'),
+        api<ApiInvoice[]>('/api/invoices/'),
+        api<ApiExpense[]>('/api/expenses/'),
+      ]);
 
-  const [expenses, setExpenses] = useState<Expense[]>(() => {
-    const stored = localStorage.getItem("expenses");
-    return stored ? JSON.parse(stored) : initialExpenses;
-  });
+      // Process Sales Orders
+      setSalesOrders(soRes.map((d): SalesOrder => ({
+        id: String(d.id),
+        projectId: d.project || "",
+        number: d.number || "",
+        customer: String(d.customer || ""),
+        amount: d.total_amount ?? d.amount ?? 0,
+        date: d.date || "",
+        status: d.status || "draft",
+        description: d.description || "",
+      })));
 
-  useEffect(() => {
-    localStorage.setItem("salesOrders", JSON.stringify(salesOrders));
-  }, [salesOrders]);
+      // Process Purchase Orders
+      setPurchaseOrders(poRes.map((d): PurchaseOrder => ({
+        id: String(d.id),
+        projectId: d.project || "",
+        number: d.number || "",
+        vendor: String(d.vendor || ""),
+        amount: d.total_amount ?? d.amount ?? 0,
+        date: d.date || "",
+        status: d.status || "draft",
+        description: d.description || "",
+      })));
 
-  useEffect(() => {
-    localStorage.setItem("purchaseOrders", JSON.stringify(purchaseOrders));
-  }, [purchaseOrders]);
-
-  useEffect(() => {
-    localStorage.setItem("customerInvoices", JSON.stringify(invoices));
-  }, [invoices]);
-
-  useEffect(() => {
-    localStorage.setItem("vendorBills", JSON.stringify(bills));
-  }, [bills]);
-
-  useEffect(() => {
-    localStorage.setItem("expenses", JSON.stringify(expenses));
-  }, [expenses]);
-
-  // Fetch data from backend API on mount (fallback to existing local data)
-  useEffect(() => {
-    const load = async () => {
-      try {
-        // Sales Orders
-        const soRes = await fetch("/api/sales-orders/");
-        if (soRes.ok) {
-          const data = await soRes.json();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setSalesOrders(data.map((d: any) => ({
-            id: String(d.id),
-            projectId: (d as any).project || "",
-            number: (d as any).number || "",
-            customer: String((d as any).customer || ""),
-            amount: (d as any).total_amount ?? (d as any).amount ?? 0,
-            date: (d as any).date || "",
-            status: (d as any).status || "draft",
-            description: (d as any).description || "",
-          })));
+      // Process Invoices and Bills
+      const customers: CustomerInvoice[] = [];
+      const vendors: VendorBill[] = [];
+      invRes.forEach((d) => {
+        const item = transformApiInvoice(d);
+        if (item) {
+          if (d.invoice_type === 'customer') customers.push(item as CustomerInvoice);
+          else vendors.push(item as VendorBill);
         }
+      });
+      setInvoices(customers);
+      setBills(vendors);
 
-        // Purchase Orders
-        const poRes = await fetch("/api/purchase-orders/");
-        if (poRes.ok) {
-          const data = await poRes.json();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setPurchaseOrders(data.map((d: any) => ({
-            id: String(d.id),
-            projectId: (d as any).project || "",
-            number: (d as any).number || "",
-            vendor: String((d as any).vendor || ""),
-            amount: (d as any).total_amount ?? (d as any).amount ?? 0,
-            date: (d as any).date || "",
-            status: (d as any).status || "draft",
-            description: (d as any).description || "",
-          })));
-        }
+      // Process Expenses
+      setExpenses(expRes.map((d): Expense => ({
+        id: String(d.id),
+        projectId: d.project || "",
+        employee: d.user || "", // Assuming 'user' is the field from Django
+        amount: d.amount ?? 0,
+        date: d.date || "",
+        category: d.category || "",
+        description: d.description || "",
+        billable: Boolean(d.billable),
+        status: d.status || "pending",
+        receipt: d.receipt || undefined,
+      })));
 
-        // Invoices (customer) and Bills (vendor)
-        const invRes = await fetch("/api/invoices/");
-        if (invRes.ok) {
-          const data = await invRes.json();
-          const customers: CustomerInvoice[] = [];
-          const vendors: VendorBill[] = [];
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          data.forEach((d: any) => {
-            const common = {
-              id: String(d.id),
-              projectId: (d as any).project || "",
-              number: (d as any).number || "",
-              amount: (d as any).total_amount ?? (d as any).amount ?? 0,
-              date: (d as any).date || "",
-              dueDate: (d as any).due_date || "",
-              status: (d as any).status || "draft",
-              description: (d as any).description || "",
-            } as CustomerInvoice & VendorBill;
+    } catch (err) {
+      console.error("Failed to fetch financial data from API:", err);
+      // You might want to load from localStorage here as a fallback
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isAuthenticated]);
 
-            if ((d as any).invoice_type === "customer") {
-              customers.push({ ...common, customer: String((d as any).customer || ""), salesOrderId: (d as any).sales_order || undefined });
-            } else if ((d as any).invoice_type === "vendor") {
-              vendors.push({ ...common, vendor: String((d as any).vendor || ""), purchaseOrderId: (d as any).purchase_order || undefined });
-            }
-          });
-          if (customers.length) setInvoices(customers);
-          if (vendors.length) setBills(vendors);
-        }
+  useEffect(() => {
+    loadFinancialData();
+  }, [loadFinancialData]);
 
-        // Expenses
-        const expRes = await fetch("/api/expenses/");
-        if (expRes.ok) {
-          const data = await expRes.json();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setExpenses(data.map((d: any) => ({
-            id: String(d.id),
-            projectId: (d as any).project || "",
-            employee: (d as any).user || "",
-            amount: (d as any).amount ?? 0,
-            date: (d as any).date || "",
-            category: (d as any).category || "",
-            description: (d as any).description || "",
-            billable: Boolean((d as any).billable),
-            status: (d as any).status || "pending",
-            receipt: (d as any).receipt || undefined,
-          })));
-        }
-      } catch (err) {
-        // If any fetch fails, keep local/static data (no-op)
-        console.warn("Failed to fetch financial data from API, using local data.", err);
-      }
-    };
-
-    load();
-  }, []);
+  // --- CRUD Functions ---
+  // These now POST/PATCH/DELETE to the API
 
   // Sales Orders
-  const addSalesOrder = (so: SalesOrder) => {
-    setSalesOrders((prev) => [...prev, so]);
+  const addSalesOrder = async (so: Omit<SalesOrder, 'id'>) => {
+    try {
+      const newSO = await api<SalesOrder>('/api/sales-orders/', { method: 'POST', body: JSON.stringify(so) });
+      setSalesOrders((prev) => [...prev, newSO]);
+    } catch (e) { console.error(e); }
   };
-
-  const updateSalesOrder = (id: string, updates: Partial<SalesOrder>) => {
-    setSalesOrders((prev) => prev.map((so) => (so.id === id ? { ...so, ...updates } : so)));
+  const updateSalesOrder = async (id: string, updates: Partial<SalesOrder>) => {
+    try {
+      const updatedSO = await api<SalesOrder>(`/api/sales-orders/${id}/`, { method: 'PATCH', body: JSON.stringify(updates) });
+      setSalesOrders((prev) => prev.map((so) => (so.id === id ? updatedSO : so)));
+    } catch (e) { console.error(e); }
   };
-
-  const deleteSalesOrder = (id: string) => {
-    setSalesOrders((prev) => prev.filter((so) => so.id !== id));
+  const deleteSalesOrder = async (id: string) => {
+    try {
+      await api(`/api/sales-orders/${id}/`, { method: 'DELETE' });
+      setSalesOrders((prev) => prev.filter((so) => so.id !== id));
+    } catch (e) { console.error(e); }
   };
 
   // Purchase Orders
-  const addPurchaseOrder = (po: PurchaseOrder) => {
-    setPurchaseOrders((prev) => [...prev, po]);
+  const addPurchaseOrder = async (po: Omit<PurchaseOrder, 'id'>) => {
+    try {
+      const newPO = await api<PurchaseOrder>('/api/purchase-orders/', { method: 'POST', body: JSON.stringify(po) });
+      setPurchaseOrders((prev) => [...prev, newPO]);
+    } catch (e) { console.error(e); }
   };
-
-  const updatePurchaseOrder = (id: string, updates: Partial<PurchaseOrder>) => {
-    setPurchaseOrders((prev) => prev.map((po) => (po.id === id ? { ...po, ...updates } : po)));
+  const updatePurchaseOrder = async (id: string, updates: Partial<PurchaseOrder>) => {
+    try {
+      const updatedPO = await api<PurchaseOrder>(`/api/purchase-orders/${id}/`, { method: 'PATCH', body: JSON.stringify(updates) });
+      setPurchaseOrders((prev) => prev.map((po) => (po.id === id ? updatedPO : po)));
+    } catch (e) { console.error(e); }
   };
-
-  const deletePurchaseOrder = (id: string) => {
-    setPurchaseOrders((prev) => prev.filter((po) => po.id !== id));
+  const deletePurchaseOrder = async (id: string) => {
+    try {
+      await api(`/api/purchase-orders/${id}/`, { method: 'DELETE' });
+      setPurchaseOrders((prev) => prev.filter((po) => po.id !== id));
+    } catch (e) { console.error(e); }
   };
 
   // Invoices
-  const addInvoice = (invoice: CustomerInvoice) => {
-    setInvoices((prev) => [...prev, invoice]);
+  const addInvoice = async (invoice: Omit<CustomerInvoice, 'id'>) => {
+    try {
+      const newInvoice = await api<CustomerInvoice>('/api/invoices/', { method: 'POST', body: JSON.stringify({ ...invoice, invoice_type: 'customer' }) });
+      setInvoices((prev) => [...prev, newInvoice]);
+    } catch (e) { console.error(e); }
   };
-
-  const updateInvoice = (id: string, updates: Partial<CustomerInvoice>) => {
-    setInvoices((prev) => prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)));
+  const updateInvoice = async (id: string, updates: Partial<CustomerInvoice>) => {
+    try {
+      const updatedInvoice = await api<CustomerInvoice>(`/api/invoices/${id}/`, { method: 'PATCH', body: JSON.stringify(updates) });
+      setInvoices((prev) => prev.map((inv) => (inv.id === id ? updatedInvoice : inv)));
+    } catch (e) { console.error(e); }
   };
-
-  const deleteInvoice = (id: string) => {
-    setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+  const deleteInvoice = async (id: string) => {
+    try {
+      await api(`/api/invoices/${id}/`, { method: 'DELETE' });
+      setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+    } catch (e) { console.error(e); }
   };
 
   // Bills
-  const addBill = (bill: VendorBill) => {
-    setBills((prev) => [...prev, bill]);
+  const addBill = async (bill: Omit<VendorBill, 'id'>) => {
+    try {
+      const newBill = await api<VendorBill>('/api/invoices/', { method: 'POST', body: JSON.stringify({ ...bill, invoice_type: 'vendor' }) });
+      setBills((prev) => [...prev, newBill]);
+    } catch (e) { console.error(e); }
   };
-
-  const updateBill = (id: string, updates: Partial<VendorBill>) => {
-    setBills((prev) => prev.map((bill) => (bill.id === id ? { ...bill, ...updates } : bill)));
+  const updateBill = async (id: string, updates: Partial<VendorBill>) => {
+    try {
+      const updatedBill = await api<VendorBill>(`/api/invoices/${id}/`, { method: 'PATCH', body: JSON.stringify(updates) });
+      setBills((prev) => prev.map((bill) => (bill.id === id ? updatedBill : bill)));
+    } catch (e) { console.error(e); }
   };
-
-  const deleteBill = (id: string) => {
-    setBills((prev) => prev.filter((bill) => bill.id !== id));
+  const deleteBill = async (id: string) => {
+    try {
+      await api(`/api/invoices/${id}/`, { method: 'DELETE' });
+      setBills((prev) => prev.filter((bill) => bill.id !== id));
+    } catch (e) { console.error(e); }
   };
 
   // Expenses
-  const addExpense = (expense: Expense) => {
-    setExpenses((prev) => [...prev, expense]);
+  const addExpense = async (expense: Omit<Expense, 'id'>) => {
+    try {
+      const newExpense = await api<Expense>('/api/expenses/', { method: 'POST', body: JSON.stringify(expense) });
+      setExpenses((prev) => [...prev, newExpense]);
+    } catch (e) { console.error(e); }
   };
-
-  const updateExpense = (id: string, updates: Partial<Expense>) => {
-    setExpenses((prev) => prev.map((exp) => (exp.id === id ? { ...exp, ...updates } : exp)));
+  const updateExpense = async (id: string, updates: Partial<Expense>) => {
+    try {
+      const updatedExpense = await api<Expense>(`/api/expenses/${id}/`, { method: 'PATCH', body: JSON.stringify(updates) });
+      setExpenses((prev) => prev.map((exp) => (exp.id === id ? updatedExpense : exp)));
+    } catch (e) { console.error(e); }
   };
-
-  const deleteExpense = (id: string) => {
-    setExpenses((prev) => prev.filter((exp) => exp.id !== id));
+  const deleteExpense = async (id: string) => {
+    try {
+      await api(`/api/expenses/${id}/`, { method: 'DELETE' });
+      setExpenses((prev) => prev.filter((exp) => exp.id !== id));
+    } catch (e) { console.error(e); }
   };
 
   return (
@@ -260,6 +266,7 @@ export const FinancialProvider: React.FC<FinancialProviderProps> = ({ children }
         invoices,
         bills,
         expenses,
+        isLoading,
         addSalesOrder,
         updateSalesOrder,
         deleteSalesOrder,
@@ -281,4 +288,3 @@ export const FinancialProvider: React.FC<FinancialProviderProps> = ({ children }
     </FinancialContext.Provider>
   );
 };
-

@@ -1,13 +1,30 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { Task } from "@/data/staticData";
-import { tasks as initialTasks } from "@/data/staticData";
+// src/contexts/TaskContext.tsx
+/* eslint-disable react-refresh/only-export-components */
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { api } from '@/lib/api';
+import { useAuth } from './AuthContext';
+
+// Define your Task type
+export interface Task {
+  id: string;
+  name: string;
+  description?: string;
+  status: 'todo' | 'in_progress' | 'in_review' | 'done';
+  priority: 'low' | 'medium' | 'high';
+  projectId: string;
+  assigneeId?: string;
+  due_date?: string;
+}
+
+type NewTaskData = Omit<Task, 'id'>;
 
 interface TaskContextType {
   tasks: Task[];
-  addTask: (task: Task) => void;
-  updateTask: (id: string, task: Partial<Task>) => void;
-  deleteTask: (id: string) => void;
-  getTask: (id: string) => Task | undefined;
+  isLoading: boolean;
+  fetchTasks: () => Promise<void>;
+  addTask: (taskData: NewTaskData) => Promise<Task | void>;
+  updateTask: (id: string, updates: Partial<Task>) => Promise<Task | void>;
+  deleteTask: (id: string) => Promise<void>;
   getTasksByProject: (projectId: string) => Task[];
 }
 
@@ -16,48 +33,80 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 export const useTasks = () => {
   const context = useContext(TaskContext);
   if (!context) {
-    throw new Error("useTasks must be used within a TaskProvider");
+    throw new Error('useTasks must be used within a TaskProvider');
   }
   return context;
 };
 
-interface TaskProviderProps {
-  children: ReactNode;
-}
+export const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { isAuthenticated } = useAuth();
 
-export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    const stored = localStorage.getItem("tasks");
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch {
-        return initialTasks;
-      }
+  const fetchTasks = useCallback(async () => {
+    if (!isAuthenticated) return;
+    setIsLoading(true);
+    try {
+      const data = await api<Task[]>('/api/tasks/');
+      setTasks(data);
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+      setTasks([]);
+    } finally {
+      setIsLoading(false);
     }
-    return initialTasks;
-  });
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    localStorage.setItem("tasks", JSON.stringify(tasks));
-  }, [tasks]);
+    fetchTasks();
+  }, [fetchTasks]);
 
-  const addTask = (task: Task) => {
-    setTasks((prev) => [...prev, task]);
+  const addTask = async (taskData: NewTaskData) => {
+    try {
+      const newTask = await api<Task>('/api/tasks/', {
+        method: 'POST',
+        body: JSON.stringify(taskData),
+      });
+      setTasks((prev) => [...prev, newTask]);
+      return newTask;
+    } catch (error) {
+      console.error('Failed to add task:', error);
+    }
   };
 
-  const updateTask = (id: string, updates: Partial<Task>) => {
+  const updateTask = async (id: string, updates: Partial<Task>) => {
+    const originalTasks = tasks;
     setTasks((prev) =>
       prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
     );
+
+    try {
+      const updatedTask = await api<Task>(`/api/tasks/${id}/`, {
+        method: 'PATCH',
+        body: JSON.stringify(updates),
+      });
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? updatedTask : t))
+      );
+      return updatedTask;
+    } catch (error) {
+      console.error('Failed to update task:', error);
+      setTasks(originalTasks);
+    }
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
+    const originalTasks = tasks;
     setTasks((prev) => prev.filter((t) => t.id !== id));
-  };
 
-  const getTask = (id: string) => {
-    return tasks.find((t) => t.id === id);
+    try {
+      await api(`/api/tasks/${id}/`, {
+        method: 'DELETE',
+      });
+    } catch (error) {
+      console.error('Failed to delete task:', error);
+      setTasks(originalTasks);
+    }
   };
 
   const getTasksByProject = (projectId: string) => {
@@ -68,10 +117,11 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     <TaskContext.Provider
       value={{
         tasks,
+        isLoading,
+        fetchTasks,
         addTask,
         updateTask,
         deleteTask,
-        getTask,
         getTasksByProject,
       }}
     >
@@ -79,4 +129,3 @@ export const TaskProvider: React.FC<TaskProviderProps> = ({ children }) => {
     </TaskContext.Provider>
   );
 };
-
