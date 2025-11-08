@@ -1,18 +1,17 @@
-import { useMemo } from "react";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useProjects } from "@/contexts/ProjectContext";
-import { useTasks } from "@/contexts/TaskContext";
-import { useFinancial } from "@/contexts/FinancialContext";
-import { TrendingUp, Users, Clock, DollarSign, TrendingDown, AlertCircle } from "lucide-react";
+import { projects, tasks, customerInvoices, vendorBills, expenses } from "@/data/staticData";
+import { TrendingUp, Users, Clock, DollarSign } from "lucide-react";
 
 export default function Analytics() {
-  const { projects } = useProjects();
-  const { tasks } = useTasks();
-  const { invoices, bills, expenses, salesOrders, purchaseOrders } = useFinancial();
+  const totalProjects = projects.length;
+  const completedTasks = tasks.filter((t) => t.status === "done").length;
+  const totalTasks = tasks.length;
+  const totalHours = tasks.reduce((sum, t) => sum + t.hoursLogged, 0);
+  const billableHours = tasks.reduce((sum, t) => sum + t.hoursLogged, 0);
 
+<<<<<<< HEAD
   // Calculate KPIs
   const analytics = useMemo(() => {
     const totalProjects = projects.length;
@@ -239,6 +238,24 @@ export default function Analytics() {
       paidBills,
     };
   }, [projects, tasks, invoices, bills, expenses, salesOrders, purchaseOrders]);
+=======
+  const totalRevenue = customerInvoices.reduce((sum, i) => sum + i.amount, 0);
+  const totalCost = vendorBills.reduce((sum, b) => sum + b.amount, 0) + 
+                    expenses.reduce((sum, e) => sum + e.amount, 0);
+  const profit = totalRevenue - totalCost;
+
+  const projectProgress = projects.map((p) => ({
+    name: p.name,
+    progress: p.progress,
+  }));
+
+  const resourceUtilization = [
+    { name: "Designer", utilization: 85 },
+    { name: "Developer", utilization: 92 },
+    { name: "QA Engineer", utilization: 70 },
+    { name: "Team Member", utilization: 65 },
+  ];
+>>>>>>> parent of eb607d3 (Working Update 1)
 
   return (
     <div className="min-h-screen bg-background">
@@ -264,9 +281,9 @@ export default function Analytics() {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.totalProjects}</div>
+                  <div className="text-2xl font-bold">{totalProjects}</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {analytics.activeProjects} active, {analytics.completedProjects} completed
+                    {projects.filter((p) => p.status === "in_progress").length} active
                   </p>
                 </CardContent>
               </Card>
@@ -280,10 +297,10 @@ export default function Analytics() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {analytics.completedTasks}/{analytics.totalTasks}
+                    {completedTasks}/{totalTasks}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {analytics.totalTasks > 0 ? `${analytics.taskCompletionRate.toFixed(0)}% completion rate` : "No tasks yet"}
+                    {((completedTasks / totalTasks) * 100).toFixed(0)}% completion rate
                   </p>
                 </CardContent>
               </Card>
@@ -296,11 +313,9 @@ export default function Analytics() {
                   <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{analytics.totalHours}h</div>
+                  <div className="text-2xl font-bold">{totalHours}h</div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {analytics.totalEstimatedHours > 0 
-                      ? `${analytics.hoursUtilization.toFixed(0)}% of estimated (${analytics.totalEstimatedHours}h)`
-                      : "No estimated hours set"}
+                    {billableHours}h billable
                   </p>
                 </CardContent>
               </Card>
@@ -310,22 +325,14 @@ export default function Analytics() {
                   <CardTitle className="text-sm font-medium text-muted-foreground">
                     Net Profit
                   </CardTitle>
-                  {analytics.profit >= 0 ? (
-                    <DollarSign className="h-4 w-4 text-success" />
-                  ) : (
-                    <TrendingDown className="h-4 w-4 text-destructive" />
-                  )}
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className={`text-2xl font-bold ${analytics.profit >= 0 ? "text-success" : "text-destructive"}`}>
-                    ₹{(analytics.profit / 1000).toFixed(0)}k
+                  <div className="text-2xl font-bold text-success">
+                    ₹{(profit / 1000).toFixed(0)}k
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    {analytics.totalRevenue > 0 
-                      ? `${analytics.profitMargin >= 0 ? "+" : ""}${analytics.profitMargin.toFixed(1)}% margin`
-                      : analytics.totalCost > 0
-                      ? "No revenue yet"
-                      : "No financial data"}
+                    {((profit / totalRevenue) * 100).toFixed(0)}% margin
                   </p>
                 </CardContent>
               </Card>
@@ -339,36 +346,20 @@ export default function Analytics() {
                   <CardTitle>Project Progress</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {analytics.projectProgress.length > 0 ? (
-                    analytics.projectProgress.map((p) => (
-                      <div key={p.name} className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{p.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {p.status.replace("_", " ")}
-                            </Badge>
-                          </div>
-                          <span className="text-muted-foreground">{p.progress}%</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div
-                            className="bg-primary rounded-full h-2 transition-all"
-                            style={{ width: `${p.progress}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between text-xs text-muted-foreground">
-                          <span>Spent: ₹{(p.spent / 1000).toFixed(0)}k</span>
-                          <span>Budget: ₹{(p.budget / 1000).toFixed(0)}k</span>
-                        </div>
+                  {projectProgress.map((p) => (
+                    <div key={p.name} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{p.name}</span>
+                        <span className="text-muted-foreground">{p.progress}%</span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No projects yet</p>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className="bg-primary rounded-full h-2 transition-all"
+                          style={{ width: `${p.progress}%` }}
+                        />
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </CardContent>
               </Card>
 
@@ -378,38 +369,26 @@ export default function Analytics() {
                   <CardTitle>Resource Utilization</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {analytics.resourceUtilization.length > 0 ? (
-                    analytics.resourceUtilization.map((r) => (
-                      <div key={r.name} className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{r.name}</span>
-                            <Badge variant="outline" className="text-xs">
-                              {r.projects} project{r.projects !== 1 ? "s" : ""}
-                            </Badge>
-                          </div>
-                          <span className="text-muted-foreground">{r.utilization.toFixed(0)}% ({r.hours}h)</span>
-                        </div>
-                        <div className="w-full bg-muted rounded-full h-2">
-                          <div
-                            className={`rounded-full h-2 transition-all ${
-                              r.utilization > 85
-                                ? "bg-destructive"
-                                : r.utilization > 70
-                                ? "bg-warning"
-                                : "bg-success"
-                            }`}
-                            style={{ width: `${r.utilization}%` }}
-                          />
-                        </div>
+                  {resourceUtilization.map((r) => (
+                    <div key={r.name} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="font-medium">{r.name}</span>
+                        <span className="text-muted-foreground">{r.utilization}%</span>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No team members assigned to projects yet</p>
+                      <div className="w-full bg-muted rounded-full h-2">
+                        <div
+                          className={`rounded-full h-2 transition-all ${
+                            r.utilization > 85
+                              ? "bg-destructive"
+                              : r.utilization > 70
+                              ? "bg-warning"
+                              : "bg-success"
+                          }`}
+                          style={{ width: `${r.utilization}%` }}
+                        />
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </CardContent>
               </Card>
 
@@ -423,110 +402,44 @@ export default function Analytics() {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Revenue</span>
                       <span className="font-bold text-success">
-                        ₹{analytics.totalRevenue > 0 ? (analytics.totalRevenue / 1000).toFixed(0) : "0"}k
+                        ₹{(totalRevenue / 1000).toFixed(0)}k
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Total Cost</span>
                       <span className="font-bold text-destructive">
-                        ₹{analytics.totalCost > 0 ? (analytics.totalCost / 1000).toFixed(0) : "0"}k
+                        ₹{(totalCost / 1000).toFixed(0)}k
                       </span>
                     </div>
-                    {(analytics.totalBills > 0 || analytics.totalExpenses > 0) && (
-                      <div className="flex justify-between text-xs text-muted-foreground pl-4">
-                        <span>Bills: ₹{(analytics.totalBills / 1000).toFixed(0)}k</span>
-                        <span>Expenses: ₹{(analytics.totalExpenses / 1000).toFixed(0)}k</span>
-                      </div>
-                    )}
                     <div className="flex justify-between pt-2 border-t border-border">
                       <span className="font-medium">Net Profit</span>
-                      <span className={`font-bold ${analytics.profit >= 0 ? "text-success" : analytics.profit < 0 ? "text-destructive" : ""}`}>
-                        ₹{analytics.profit !== 0 ? (analytics.profit / 1000).toFixed(0) : "0"}k
+                      <span className="font-bold text-primary">
+                        ₹{(profit / 1000).toFixed(0)}k
                       </span>
                     </div>
                   </div>
-                  {analytics.totalRevenue > 0 ? (
-                    <div className="pt-4">
-                      <p className="text-sm text-muted-foreground mb-2">Profit Margin</p>
-                      <div className="w-full bg-muted rounded-full h-3">
-                        <div
-                          className={`rounded-full h-3 transition-all ${
-                            analytics.profitMargin >= 0 ? "bg-success" : "bg-destructive"
-                          }`}
-                          style={{ width: `${Math.min(Math.abs(analytics.profitMargin), 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 text-right">
-                        {analytics.profitMargin >= 0 ? "+" : ""}{analytics.profitMargin.toFixed(1)}%
-                      </p>
+                  <div className="pt-4">
+                    <p className="text-sm text-muted-foreground mb-2">Profit Margin</p>
+                    <div className="w-full bg-muted rounded-full h-3">
+                      <div
+                        className="bg-success rounded-full h-3 transition-all"
+                        style={{ width: `${(profit / totalRevenue) * 100}%` }}
+                      />
                     </div>
-                  ) : analytics.totalCost > 0 ? (
-                    <div className="pt-4 text-center text-sm text-muted-foreground">
-                      <p>Revenue: ₹0 (Costs: ₹{(analytics.totalCost / 1000).toFixed(0)}k)</p>
-                    </div>
-                  ) : (
-                    <div className="pt-4 text-center text-sm text-muted-foreground">
-                      <p>No financial data available</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Budget Analysis */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Budget Analysis</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Budget</span>
-                      <span className="font-bold">
-                        ₹{(analytics.totalBudget / 1000).toFixed(0)}k
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Total Spent</span>
-                      <span className="font-bold text-destructive">
-                        ₹{(analytics.totalSpent / 1000).toFixed(0)}k
-                      </span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-border">
-                      <span className="font-medium">Remaining</span>
-                      <span className={`font-bold ${analytics.budgetRemaining >= 0 ? "text-success" : "text-destructive"}`}>
-                        ₹{(analytics.budgetRemaining / 1000).toFixed(0)}k
-                      </span>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-1 text-right">
+                      {((profit / totalRevenue) * 100).toFixed(1)}%
+                    </p>
                   </div>
-                  {analytics.totalBudget > 0 && (
-                    <div className="pt-4">
-                      <p className="text-sm text-muted-foreground mb-2">Budget Utilization</p>
-                      <div className="w-full bg-muted rounded-full h-3">
-                        <div
-                          className={`rounded-full h-3 transition-all ${
-                            analytics.budgetUtilization > 100
-                              ? "bg-destructive"
-                              : analytics.budgetUtilization > 80
-                              ? "bg-warning"
-                              : "bg-success"
-                          }`}
-                          style={{ width: `${Math.min(analytics.budgetUtilization, 100)}%` }}
-                        />
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1 text-right">
-                        {analytics.budgetUtilization.toFixed(1)}%
-                      </p>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
-              {/* Expense Categories */}
+              {/* Billable vs Non-billable */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Expense Categories</CardTitle>
+                  <CardTitle>Billable vs Non-billable Hours</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+<<<<<<< HEAD
                   {Object.keys(analytics.expenseByCategory).length > 0 ? (
                     <>
                       {Object.entries(analytics.expenseByCategory)
@@ -618,37 +531,21 @@ export default function Analytics() {
                         <div className="text-center py-8 text-muted-foreground">
                           <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                           <p>No financial data for projects yet</p>
+=======
+                  <div className="flex items-center justify-center h-48">
+                    <div className="text-center">
+                      <div className="text-4xl font-bold">{totalHours}h</div>
+                      <p className="text-muted-foreground mt-2">Total Hours Logged</p>
+                      <div className="mt-4 space-y-2">
+                        <div className="flex items-center gap-2 justify-center">
+                          <div className="w-3 h-3 rounded-full bg-success" />
+                          <span className="text-sm">Billable: {billableHours}h</span>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p>No projects yet</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Sales Orders vs Invoices */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Sales Pipeline</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Sales Orders</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">{analytics.confirmedSalesOrders}/{analytics.totalSalesOrders}</span>
-                        <Badge variant="outline">Confirmed</Badge>
-                      </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Invoices</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">{analytics.paidInvoices}/{analytics.totalInvoices}</span>
-                        <Badge variant="outline">Paid</Badge>
+                        <div className="flex items-center gap-2 justify-center">
+                          <div className="w-3 h-3 rounded-full bg-muted" />
+                          <span className="text-sm">Non-billable: 0h</span>
+>>>>>>> parent of eb607d3 (Working Update 1)
+                        </div>
                       </div>
                     </div>
                   </div>

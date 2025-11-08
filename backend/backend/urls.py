@@ -1,10 +1,10 @@
 # backend/backend/urls.py
 from django.contrib import admin
 from django.urls import path, include
-from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+<<<<<<< HEAD
     
     # User auth URLs (login, logout, register, session)
     path('api/', include('apps.users.urls')), 
@@ -21,3 +21,8 @@ urlpatterns = [
     path('api/', include('apps.timesheets.urls')),  # Assumes you create this
     path('api/', include('apps.products.urls')),    # Assumes you create this
 ]
+=======
+    path('', include('apps.users.urls')),
+    path('', include('apps.analytics.urls')),
+]
+>>>>>>> parent of eb607d3 (Working Update 1)

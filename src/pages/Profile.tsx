@@ -1,21 +1,14 @@
-import { useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { User, Mail, Briefcase } from "lucide-react";
-import { toast } from "@/hooks/use-toast";
-import apiClient from "@/lib/api";
 
 export default function Profile() {
   const { user } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -55,13 +48,7 @@ export default function Profile() {
                     <Label htmlFor="name">Full Name</Label>
                     <div className="flex gap-2">
                       <User className="h-5 w-5 text-muted-foreground mt-2" />
-                      <Input 
-                        id="name" 
-                        value={user?.name || ""}
-                        onChange={(e) => {
-                          // In a real app, this would update the user state
-                        }}
-                      />
+                      <Input id="name" defaultValue={user?.name} />
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -82,54 +69,7 @@ export default function Profile() {
                       />
                     </div>
                   </div>
-                  <Button onClick={handleSaveProfile}>Save Changes</Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Change Password</CardTitle>
-                  <CardDescription>
-                    Update your password to keep your account secure
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      placeholder="Enter current password"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input
-                      id="new-password"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm new password"
-                    />
-                  </div>
-                  <Button
-                    onClick={handlePasswordUpdate}
-                    disabled={isUpdatingPassword}
-                  >
-                    {isUpdatingPassword ? "Updating..." : "Update Password"}
-                  </Button>
+                  <Button>Save Changes</Button>
                 </CardContent>
               </Card>
             </div>
@@ -138,68 +78,4 @@ export default function Profile() {
       </div>
     </div>
   );
-
-  async function handlePasswordUpdate() {
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Please fill in all password fields",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "New passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast({
-        title: "Error",
-        description: "New password must be at least 8 characters long",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsUpdatingPassword(true);
-    try {
-      const response = await apiClient.post('/users/change-password/', {
-        current_password: currentPassword,
-        new_password: newPassword,
-      });
-
-      toast({
-        title: "Success",
-        description: "Password updated successfully",
-      });
-
-      // Clear form
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || error.response?.data?.message || error.message || "Failed to update password";
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsUpdatingPassword(false);
-    }
-  }
-
-  function handleSaveProfile() {
-    // In a real app, this would call an API to update the user profile
-    toast({
-      title: "Profile updated",
-      description: "Your profile information has been saved.",
-    });
-  }
 }

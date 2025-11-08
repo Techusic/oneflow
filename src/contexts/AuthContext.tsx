@@ -40,6 +40,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const checkAuth = async () => {
     setIsLoading(true);
     try {
+<<<<<<< HEAD
       // Use our api helper
       const data = await api<User>('/api/session/'); 
       setUser(data);
@@ -57,6 +58,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     checkAuth();
   }, []);
+=======
+      const response = await fetch('/api/users/login/', { // Uses the proxy
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        // You might get specific error messages from the backend
+        const errorData = await response.json().catch(() => ({ detail: 'Invalid credentials' }));
+        throw new Error(errorData.detail || "Invalid credentials");
+      }
+
+      const data = await response.json();
+      // Assumes backend returns { user: { ... }, token: '...' }
+      const { user, token } = data; 
+
+      if (!user || !token) {
+        throw new Error("Invalid response from server");
+      }
+
+      setUser(user);
+      localStorage.setItem("oneflow_user", JSON.stringify(user));
+      // Store the auth token to send with future requests
+      localStorage.setItem("oneflow_token", token); 
+
+    } catch (error) {
+      console.error("Login failed:", error);
+      throw error; // Re-throw to let the Login page handle it
+    }
+  };
+
+  const signup = async (email: string, password: string, name: string, role: UserRole) => {
+     try {
+      const response = await fetch('/api/users/signup/', { // Uses the proxy
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name, role }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Signup failed' }));
+        throw new Error(errorData.detail || "Signup failed");
+      }
+      
+      const data = await response.json();
+      // Assumes backend returns { user: { ... }, token: '...' }
+      const { user, token } = data;
+>>>>>>> parent of eb607d3 (Working Update 1)
 
   const login = async (formData: FormData) => {
     // We can't use our JSON api helper for FormData
@@ -68,9 +122,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
+<<<<<<< HEAD
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Login failed');
+=======
+      setUser(user);
+      localStorage.setItem("oneflow_user", JSON.stringify(user));
+      localStorage.setItem("oneflow_token", token);
+      
+    } catch (error) {
+       console.error("Signup failed:", error);
+       throw error; // Re-throw to let the Signup page handle it
+>>>>>>> parent of eb607d3 (Working Update 1)
     }
     
     await checkAuth(); // Re-check session to get user data

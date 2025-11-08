@@ -2,4 +2,3 @@ Django>=3.2
 djangorestframework
 Pillow
 django-cors-headers
-python-dotenv

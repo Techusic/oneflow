@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -26,7 +25,7 @@ const projectSchema = z.object({
   manager: z.string().min(1, "Manager is required"),
   team: z.array(z.string()),
   startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().optional(), // End date is now optional
+  endDate: z.string().min(1, "End date is required"),
   budget: z.number().min(0, "Budget must be positive"),
   spent: z.number().min(0).default(0),
   progress: z.number().min(0).max(100, "Progress must be between 0 and 100").default(0),
@@ -40,18 +39,9 @@ interface ProjectFormDialogProps {
   project?: Project | null;
 }
 
-interface TeamMember {
-  name: string;
-  timeSpent: number;
-}
-
 export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDialogProps) {
   const { addProject, updateProject } = useProjects();
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(
-    project?.team.map(name => ({ name, timeSpent: 0 })) || []
-  );
-  const [newMemberName, setNewMemberName] = useState("");
-  const [newMemberTime, setNewMemberTime] = useState("");
+  const [teamMembers, setTeamMembers] = useState<string[]>(project?.team || []);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -83,7 +73,7 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
         spent: project.spent,
         progress: project.progress,
       });
-      setTeamMembers(project.team.map(name => ({ name, timeSpent: 0 })));
+      setTeamMembers(project.team);
     } else {
       form.reset({
         name: "",
@@ -99,24 +89,16 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
       });
       setTeamMembers([]);
     }
-    setNewMemberName("");
   }, [project, form]);
 
   const onSubmit = (data: ProjectFormValues) => {
-    // Clean up empty endDate - convert empty string to undefined
-    const cleanedData = {
-      ...data,
-      team: teamMembers.map(m => m.name),
-      endDate: data.endDate && data.endDate.trim() !== "" ? data.endDate : undefined,
-    };
-    
     if (project) {
       // Update existing project
-      updateProject(project.id, cleanedData);
+      updateProject(project.id, data);
     } else {
       // Create new project
       const newProject: Project = {
-        ...cleanedData,
+        ...data,
         id: Date.now().toString(),
       };
       addProject(newProject);
@@ -124,7 +106,25 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
     onOpenChange(false);
     form.reset();
     setTeamMembers([]);
-    setNewMemberName("");
+  };
+
+  const addTeamMember = () => {
+    const input = document.getElementById("team-member-input") as HTMLInputElement;
+    if (input && input.value.trim()) {
+      const newMember = input.value.trim();
+      if (!teamMembers.includes(newMember)) {
+        const updated = [...teamMembers, newMember];
+        setTeamMembers(updated);
+        form.setValue("team", updated);
+        input.value = "";
+      }
+    }
+  };
+
+  const removeTeamMember = (member: string) => {
+    const updated = teamMembers.filter((m) => m !== member);
+    setTeamMembers(updated);
+    form.setValue("team", updated);
   };
 
   return (
@@ -223,9 +223,9 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
                 name="endDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>End Date (Optional)</FormLabel>
+                    <FormLabel>End Date</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} value={field.value || ""} />
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -275,94 +275,42 @@ export function ProjectFormDialog({ open, onOpenChange, project }: ProjectFormDi
               />
             </div>
 
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => {}}>
-                  Add User
-                </Button>
-                <Button type="button" variant="outline" onClick={() => {}}>
-                  Add Task
-                </Button>
-                <Button type="button" variant="outline" onClick={() => {}}>
-                  Add Expense
-                </Button>
-                <Button type="button" variant="outline" onClick={() => {}}>
-                  Add Product
+            <div>
+              <Label>Team Members</Label>
+              <div className="flex gap-2 mt-2">
+                <Input
+                  id="team-member-input"
+                  placeholder="Enter team member name"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addTeamMember();
+                    }
+                  }}
+                />
+                <Button type="button" onClick={addTeamMember}>
+                  Add
                 </Button>
               </div>
-
-              <div>
-                <Label>Team Members</Label>
-                <div className="border rounded-lg mt-2">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Employee</TableHead>
-                        <TableHead>Time Spent</TableHead>
-                        <TableHead className="w-[100px]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {teamMembers.map((member, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{member.name}</TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={member.timeSpent}
-                              onChange={(e) => {
-                                const updated = [...teamMembers];
-                                updated[index].timeSpent = parseFloat(e.target.value) || 0;
-                                setTeamMembers(updated);
-                              }}
-                              className="w-24"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setTeamMembers(teamMembers.filter((_, i) => i !== index));
-                              }}
-                            >
-                              Remove
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              {teamMembers.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {teamMembers.map((member) => (
+                    <div
+                      key={member}
+                      className="flex items-center gap-1 bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-sm"
+                    >
+                      <span>{member}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeTeamMember(member)}
+                        className="ml-1 hover:text-destructive"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
                 </div>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Employee name"
-                    value={newMemberName}
-                    onChange={(e) => setNewMemberName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        if (newMemberName.trim()) {
-                          setTeamMembers([...teamMembers, { name: newMemberName.trim(), timeSpent: 0 }]);
-                          setNewMemberName("");
-                        }
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (newMemberName.trim()) {
-                        setTeamMembers([...teamMembers, { name: newMemberName.trim(), timeSpent: 0 }]);
-                        setNewMemberName("");
-                      }
-                    }}
-                  >
-                    Add new
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
 
             <DialogFooter>
