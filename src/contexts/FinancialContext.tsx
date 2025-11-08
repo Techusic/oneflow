@@ -1,18 +1,77 @@
-// src/contexts/FinancialContext.tsx
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { api } from '@/lib/api';
-import { useAuth } from './AuthContext';
+import { useAuth } from '@/contexts/AuthContext'; // <-- FIX: Changed to alias path
 
 // Import your types...
 import { SalesOrder, PurchaseOrder, CustomerInvoice, VendorBill, Expense } from "@/data/staticData";
 
-// Define API response types (can be moved to a types file)
-// These are examples; adjust them to match your Django Serializers
-interface ApiSalesOrder { id: string; [key: string]: any; }
-interface ApiPurchaseOrder { id: string; [key: string]: any; }
-interface ApiInvoice { id: string; invoice_type: 'customer' | 'vendor'; [key: string]: any; }
-interface ApiExpense { id: string; [key: string]: any; }
+//
+// --- FIX STARTS HERE ---
+//
+// Define API response types based on transformation logic
+// These are now type-safe and do not use 'any'.
+// We use optional (?) and null unions because the transformation
+// logic handles potentially missing/null values (e.g., d.project || "")
+//
+interface ApiSalesOrder {
+  id: string | number;
+  project?: string | null;
+  number?: string | null;
+  customer?: string | number | null;
+  total_amount?: number | null;
+  amount?: number | null;
+  date?: string | null;
+  status?: string | null;
+  description?: string | null;
+}
+
+interface ApiPurchaseOrder {
+  id: string | number;
+  project?: string | null;
+  number?: string | null;
+  vendor?: string | number | null;
+  total_amount?: number | null;
+  amount?: number | null;
+  date?: string | null;
+  status?: string | null;
+  description?: string | null;
+}
+
+interface ApiInvoice {
+  id: string | number;
+  invoice_type: 'customer' | 'vendor'; // This was already correct
+  project?: string | null;
+  number?: string | null;
+  total_amount?: number | null;
+  amount?: number | null;
+  date?: string | null;
+  due_date?: string | null;
+  status?: string | null;
+  description?: string | null;
+  // Specific to customer invoices
+  customer?: string | number | null;
+  sales_order?: string | null;
+  // Specific to vendor bills
+  vendor?: string | number | null;
+  purchase_order?: string | null;
+}
+
+interface ApiExpense {
+  id: string | number;
+  project?: string | null;
+  user?: string | null; // Maps to 'employee'
+  amount?: number | null;
+  date?: string | null;
+  category?: string | null;
+  description?: string | null;
+  billable?: boolean | null;
+  status?: string | null;
+  receipt?: string | null;
+}
+//
+// --- FIX ENDS HERE ---
+//
 
 interface FinancialContextType {
   salesOrders: SalesOrder[];
@@ -49,6 +108,7 @@ export const useFinancial = () => {
 };
 
 // Helper: Transform API invoice data
+// This function is now fully type-safe
 const transformApiInvoice = (d: ApiInvoice): CustomerInvoice | VendorBill | null => {
   const common = {
     id: String(d.id),
